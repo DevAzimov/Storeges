@@ -27,7 +27,7 @@ import kotlin.collections.ArrayList
 
 class MainActivity : AppCompatActivity() {
     private val isPersistent : Boolean = true
-    private val isInternal : Boolean = false
+    private val isInternal : Boolean = true
     private var readPermissionGranted : Boolean = false
     private var writePermissionGranted : Boolean = false
 
@@ -47,7 +47,11 @@ class MainActivity : AppCompatActivity() {
         val btn_delete_external = findViewById<Button>(R.id.btn_delete_exter)
 
         btn_delete_internal.setOnClickListener {
-            deleteTempFolder("Eshonxo'ja")
+            deleteInternalFile()
+        }
+
+        btn_delete_external.setOnClickListener {
+            deleteExternalFile()
         }
 
         val btn_save_iternal = findViewById<Button>(R.id.btn_sav_inter)
@@ -75,6 +79,8 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+
+    //Take Photos
     private val takePhoto = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
         val filename = UUID.randomUUID().toString()
         
@@ -103,127 +109,8 @@ class MainActivity : AppCompatActivity() {
         
     }
 
-    private fun savePhotoToExternalStorage(filename: String, bitmap: Bitmap): Boolean {
-        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-        } else {
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        }
 
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "$filename.jpg")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpg")
-            put(MediaStore.Images.Media.WIDTH, bitmap.width)
-            put(MediaStore.Images.Media.HEIGHT, bitmap.height)
-        }
-        return try {
-            contentResolver.insert(collection, contentValues)?.also { uri ->
-                contentResolver.openOutputStream(uri).use { outputStream ->
-                    if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)) {
-                        throw IOException("Couldn't bitmap.")
-                    }
-                }
-            } ?: throw IOException("Couldn't create MediaStore entry")
-            true
-        } catch (e: IOException) {
-            e.printStackTrace()
-            false
-        }
-        }
-
-
-
-    private fun savePhotoToInternalStorage(filename: String, bitmap: Bitmap): Boolean {
-        return try {
-            openFileOutput("$filename.jpg", MODE_PRIVATE).use { stream ->
-                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)) {
-                    throw  IOException("Couldn't bitmap.")
-                }
-            }
-            true
-        } catch (e: IOException) {
-            e.printStackTrace()
-            false
-        }
-    }
-
-//    var dir = filesDir
-//    var file = File(dir, "my_filename")
-//    var deleted = file.delete()
-
-
-    private fun deleteTempFolder(dir: String) {
-        val myDir = File(Environment.getExternalStorageDirectory().toString() + "/" + dir)
-        if (myDir.isDirectory) {
-            val children = myDir.list()
-            for (i in children.indices) {
-                File(myDir, children[i]).delete()
-            }
-        }
-    }
-
-    @SuppressLint("LongLogTag")
-    private fun readExternalFile() {
-        val fileName = "pdp_external.txt"
-        try {
-            val fileInputStream: FileInputStream
-            fileInputStream = if (isPersistent) {
-                openFileInput(fileName)
-            } else {
-                val file = File(cacheDir, fileName)
-                FileInputStream(file)
-            }
-            val inputStreamReader = InputStreamReader(fileInputStream, Charset.forName("UTF-8"))
-            val lines: MutableList<String?> = ArrayList()
-            val reader = BufferedReader(inputStreamReader)
-            var line = reader.readLine()
-            while (line != null) {
-                lines.add(line)
-                line = reader.readLine()
-            }
-            val readText = TextUtils.join("/n", lines)
-            Toast.makeText(
-                this,
-                "Read from file %s successful",
-                Toast.LENGTH_SHORT
-            ).show()
-        } catch (e: java.lang.Exception) {
-            e.printStackTrace()
-            Toast.makeText(
-                this,
-                "Read from file %s failed",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    private fun saveExternalFile(data: String) {
-        val fileName = "pdp_external.txt"
-        val file : File
-        file = if (isPersistent) {
-            File (getExternalFilesDir(null), fileName)
-        } else {
-            File(externalCacheDir, fileName)
-        }
-        try {
-            val fileOutputStream = FileOutputStream(file)
-            fileOutputStream.write(data.toByteArray(Charset.forName("UTF-8")))
-            Toast.makeText(
-                this,
-                "Write to %s successful",
-                Toast.LENGTH_SHORT
-            ).show()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(
-                this,
-                "Write to %s failed",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-
-    }
-
+    // Internal Storages
     @SuppressLint("LongLogTag")
     private fun readInternalFile() {
         val fileName = "pdp_internal.txt"
@@ -285,6 +172,165 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun savePhotoToInternalStorage(filename: String, bitmap: Bitmap): Boolean {
+        return try {
+            openFileOutput("$filename.jpg", MODE_PRIVATE).use { stream ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)) {
+                    throw  IOException("Couldn't bitmap.")
+                }
+            }
+            true
+        } catch (e: IOException) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    private fun deleteInternalFile() {
+        val fileName = "pdp_internal.txt"
+        val file: File
+        file = if (isPersistent) {
+            File(filesDir, fileName)
+        } else {
+            File(cacheDir, fileName)
+        }
+        if (file.exists()) {
+            file.delete()
+            Toast.makeText(
+                this,
+                "File %s has been deleted",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            Toast.makeText(
+                this,
+                "File %s doesn't exist",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+
+    // External Storages
+    private fun saveExternalFile(data: String) {
+        val fileName = "pdp_external.txt"
+
+        val file: File
+        file = if (isPersistent) {
+            File(getExternalFilesDir(null), fileName)
+        } else {
+            File(externalCacheDir, fileName)
+        }
+        Log.d("@@@", "absolutePath: " + file.absolutePath)
+        try {
+            val fileOutputStream = FileOutputStream(file)
+            fileOutputStream.write(data.toByteArray(Charset.forName("UTF-8")))
+            Toast.makeText(
+                this,
+                "Write to %s successful",
+                Toast.LENGTH_SHORT
+            ).show()
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+            Toast.makeText(
+                this,
+                "Write to %s failed",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun readExternalFile() {
+        val fileName = "pdp_external.txt"
+        val file: File
+        file = if (isPersistent)
+            File(getExternalFilesDir(null), fileName)
+        else
+            File(externalCacheDir, fileName)
+
+        Log.d("@@@", "absolutePath: " + file.absolutePath)
+
+        try {
+            val fileInputStream = FileInputStream(file)
+            val inputStreamReader = InputStreamReader(fileInputStream, Charset.forName("UTF-8"))
+            val lines: MutableList<String?> = java.util.ArrayList()
+            val reader = BufferedReader(inputStreamReader)
+            var line = reader.readLine()
+            while (line != null) {
+                lines.add(line)
+                line = reader.readLine()
+            }
+            val readText = TextUtils.join("\n", lines)
+            Log.d("StorageActivity", readText)
+            Toast.makeText(
+                this,
+                "Read from file %s successful",
+                Toast.LENGTH_SHORT
+            ).show()
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+            Toast.makeText(
+                this,
+                "Read from file %s failed",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun savePhotoToExternalStorage(filename: String, bitmap: Bitmap): Boolean {
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        }
+
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "$filename.jpg")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpg")
+            put(MediaStore.Images.Media.WIDTH, bitmap.width)
+            put(MediaStore.Images.Media.HEIGHT, bitmap.height)
+        }
+        return try {
+            contentResolver.insert(collection, contentValues)?.also { uri ->
+                contentResolver.openOutputStream(uri).use { outputStream ->
+                    if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)) {
+                        throw IOException("Couldn't bitmap.")
+                    }
+                }
+            } ?: throw IOException("Couldn't create MediaStore entry")
+            true
+        } catch (e: IOException) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    private fun deleteExternalFile() {
+        val fileName = "pdp_external.txt"
+        val file: File
+        file = if (isPersistent) {
+            File(getExternalFilesDir(null), fileName)
+        } else {
+            File(externalCacheDir, fileName)
+        }
+        if (file.exists()) {
+            file.delete()
+            Toast.makeText(
+                this,
+                "File %s has been deleted",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            Toast.makeText(
+                this,
+                "File %s doesn't exist",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+
+    //Other functions
     @SuppressLint("LongLogTag")
     private fun createInternalFIle() {
         val fileName = "pdp_internal.txt"
@@ -318,7 +364,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun checkStoragePaths() {
         val internal_m1 = getDir("custom", 0)
         val internal_m2 = filesDir
@@ -334,6 +379,8 @@ class MainActivity : AppCompatActivity() {
         Log.d("StorageActivity", external_m3!!.absolutePath)
     }
 
+
+    //Permission
     private fun requestPermissions() {
         val hasReadPermission = ContextCompat.checkSelfPermission(
             this,
